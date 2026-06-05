@@ -1,0 +1,44 @@
+@font-face {
+  font-family: 'Kimberley BL';
+  src: url('/fonts/kimberley-bl.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #000;
+  color: #fff;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.6) sepia(1) saturate(5) hue-rotate(155deg);
+  cursor: pointer;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #666666;
+}
+
+select option {
+  color: #ffffff;
+  background: #0f0f0f;
+}
+
+::selection {
+  background: #1464AB;
+  color: #fff;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
