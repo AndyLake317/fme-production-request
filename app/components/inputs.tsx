@@ -18,6 +18,9 @@ const inputBase: React.CSSProperties = {
   transition: 'border-color 140ms ease, box-shadow 140ms ease',
 };
 
+const ERROR_COLOR = '#EF4444';
+const ERROR_GLOW = 'rgba(239,68,68,0.15)';
+
 export function Field({
   label, required, hint, children, span = 12, error,
 }: {
@@ -29,9 +32,9 @@ export function Field({
       <label style={{
         fontFamily: '"Inter", system-ui, sans-serif',
         fontSize: 11, fontWeight: 600, letterSpacing: '0.12em',
-        textTransform: 'uppercase', color: error ? C.blue : C.inkMuted,
+        textTransform: 'uppercase', color: error ? ERROR_COLOR : C.inkMuted,
       }}>
-        {label}{required && <span style={{ color: C.blue, marginLeft: 4 }}>*</span>}
+        {label}{required && <span style={{ color: error ? ERROR_COLOR : C.blue, marginLeft: 4 }}>*</span>}
       </label>
       {children}
       {hint && (
@@ -62,8 +65,10 @@ export function TextInput({
       onBlur={() => setFocused(false)}
       style={{
         ...inputBase,
-        borderColor: focused ? C.blue : (error ? C.blue : C.border),
-        boxShadow: focused ? `0 0 0 3px ${C.blueGlow}` : 'none',
+        borderColor: focused ? C.blue : (error ? ERROR_COLOR : C.border),
+        boxShadow: focused
+          ? `0 0 0 3px ${C.blueGlow}`
+          : error ? `0 0 0 3px ${ERROR_GLOW}` : 'none',
       }}
     />
   );
@@ -86,8 +91,10 @@ export function TextArea({
       onBlur={() => setFocused(false)}
       style={{
         ...inputBase, resize: 'vertical', minHeight: 110, lineHeight: 1.55,
-        borderColor: focused ? C.blue : (error ? C.blue : C.border),
-        boxShadow: focused ? `0 0 0 3px ${C.blueGlow}` : 'none',
+        borderColor: focused ? C.blue : (error ? ERROR_COLOR : C.border),
+        boxShadow: focused
+          ? `0 0 0 3px ${C.blueGlow}`
+          : error ? `0 0 0 3px ${ERROR_GLOW}` : 'none',
       }}
     />
   );
@@ -123,17 +130,24 @@ export function Select({
 }
 
 export function CheckGroup({
-  options, values, onChange, columns = 2,
+  options, values, onChange, columns = 2, error,
 }: {
   options: string[]; values: string[];
-  onChange: (v: string[]) => void; columns?: number;
+  onChange: (v: string[]) => void; columns?: number; error?: boolean;
 }) {
   const toggle = (opt: string) => {
     if (values.includes(opt)) onChange(values.filter(v => v !== opt));
     else onChange([...values, opt]);
   };
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: 8 }}>
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+      gap: 8,
+      padding: error ? '8px' : undefined,
+      outline: error ? `2px solid ${ERROR_COLOR}` : undefined,
+      boxShadow: error ? `0 0 0 4px ${ERROR_GLOW}` : undefined,
+    }}>
       {options.map((opt) => {
         const active = values.includes(opt);
         return (
@@ -183,14 +197,17 @@ export function CheckGroup({
 }
 
 export function RadioButtons({
-  options, value, onChange, columns,
+  options, value, onChange, columns, error,
 }: {
   options: string[]; value: string;
-  onChange: (v: string) => void; columns?: number;
+  onChange: (v: string) => void; columns?: number; error?: boolean;
 }) {
-  const containerStyle: React.CSSProperties = columns
-    ? { display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: 8 }
-    : { display: 'flex', gap: 8, flexWrap: 'wrap' };
+  const containerStyle: React.CSSProperties = {
+    ...(columns
+      ? { display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: 8 }
+      : { display: 'flex', gap: 8, flexWrap: 'wrap' as const }),
+    ...(error ? { padding: '8px', outline: `2px solid ${ERROR_COLOR}`, boxShadow: `0 0 0 4px ${ERROR_GLOW}` } : {}),
+  };
   return (
     <div style={containerStyle}>
       {options.map((opt) => {
@@ -234,12 +251,15 @@ export function RadioButtons({
 }
 
 export function YesNo({
-  value, onChange,
+  value, onChange, error,
 }: {
-  value: string; onChange: (v: string) => void;
+  value: string; onChange: (v: string) => void; error?: boolean;
 }) {
   return (
-    <div style={{ display: 'flex', gap: 8 }}>
+    <div style={{
+      display: 'flex', gap: 8,
+      ...(error ? { padding: '8px', outline: `2px solid ${ERROR_COLOR}`, boxShadow: `0 0 0 4px ${ERROR_GLOW}` } : {}),
+    }}>
       {['Yes', 'No'].map((opt) => {
         const active = value === opt;
         return (

@@ -81,7 +81,7 @@ export default function Form() {
     setSubmitError('');
     if (!validate()) {
       const firstErrorEl = document.querySelector('[data-error="true"]');
-      if (firstErrorEl) firstErrorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (firstErrorEl) { firstErrorEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
       return;
     }
     setSubmitting(true);
@@ -264,7 +264,7 @@ export default function Form() {
             <Field label="Script / Concept Status" required span={12}
               hint="Helps us understand what kind of creative lift is needed." error={errors.scriptStatus}>
               <div data-error={errors.scriptStatus ? 'true' : 'false'}>
-                <RadioButtons options={SCRIPT_STATUS} value={form.scriptStatus} onChange={update('scriptStatus')} columns={3} />
+                <RadioButtons options={SCRIPT_STATUS} value={form.scriptStatus} onChange={update('scriptStatus')} columns={3} error={errors.scriptStatus} />
               </div>
             </Field>
             <Field label="Approvers / Stakeholders" span={12}
@@ -333,22 +333,22 @@ export default function Form() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 24 }}>
             <Field label="Services Needed" required span={12} error={errors.services}>
               <div data-error={errors.services ? 'true' : 'false'}>
-                <CheckGroup options={SERVICES} values={form.services} onChange={update('services')} columns={2} />
+                <CheckGroup options={SERVICES} values={form.services} onChange={update('services')} columns={2} error={errors.services} />
               </div>
             </Field>
             <Field label="Audio Capture Required?" required span={6} hint="Interviews, live speakers, natural sound, etc." error={errors.audioNeeded}>
               <div data-error={errors.audioNeeded ? 'true' : 'false'}>
-                <YesNo value={form.audioNeeded} onChange={update('audioNeeded')} />
+                <YesNo value={form.audioNeeded} onChange={update('audioNeeded')} error={errors.audioNeeded} />
               </div>
             </Field>
             <Field label="Post-Production Needed?" required span={6} hint="Editing, graphics, color, music, etc." error={errors.postNeeded}>
               <div data-error={errors.postNeeded ? 'true' : 'false'}>
-                <YesNo value={form.postNeeded} onChange={update('postNeeded')} />
+                <YesNo value={form.postNeeded} onChange={update('postNeeded')} error={errors.postNeeded} />
               </div>
             </Field>
             <Field label="Where Will This Be Distributed?" required span={12} error={errors.broadcast}>
               <div data-error={errors.broadcast ? 'true' : 'false'}>
-                <CheckGroup options={BROADCAST} values={form.broadcast} onChange={update('broadcast')} columns={3} />
+                <CheckGroup options={BROADCAST} values={form.broadcast} onChange={update('broadcast')} columns={3} error={errors.broadcast} />
               </div>
             </Field>
           </div>
@@ -360,7 +360,7 @@ export default function Form() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 24 }}>
             <Field label="Output Package" required span={12} error={errors.deliverables}>
               <div data-error={errors.deliverables ? 'true' : 'false'}>
-                <CheckGroup options={DELIVERABLES} values={form.deliverables} onChange={update('deliverables')} columns={2} />
+                <CheckGroup options={DELIVERABLES} values={form.deliverables} onChange={update('deliverables')} columns={2} error={errors.deliverables} />
               </div>
             </Field>
             <Field label="Accessibility Deliverables" span={12}
