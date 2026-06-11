@@ -36,6 +36,68 @@ function validate(f: any): string | null {
   return null;
 }
 
+async function upsertClient(company: string, contactName: string, email: string, phone: string): Promise<string> {
+  // Check if a client with this company name already exists (case-insensitive)
+  const { data: existing } = await supabase
+    .from('roster_clients')
+    .select('id')
+    .ilike('name', company.trim())
+    .maybeSingle();
+
+  if (existing) return existing.id;
+
+  // Create a new client record
+  const { data: created, error } = await supabase
+    .from('roster_clients')
+    .insert({
+      name: company.trim(),
+      contact_name: contactName || null,
+      email: email || null,
+      phone: phone || null,
+    })
+    .select('id')
+    .single();
+
+  if (error || !created) throw new Error(`Failed to upsert client: ${error?.message}`);
+  return created.id;
+}
+
+async function createProjectFromRequest(
+  requestId: string,
+  ref: string,
+  form: FormState,
+  clientId: string
+): Promise<void> {
+  // Create the project
+  const { data: project, error: projectErr } = await supabase
+    .from('projects')
+    .insert({
+      name: form.productionName.trim(),
+      client_id: clientId,
+      status: 'new',
+      phase: 'intake',
+      project_type: 'commercial_video',
+      description: form.description || null,
+      shoot_date: form.shootDate || null,
+      delivery_date: form.deliveryDate || null,
+      shoot_days: form.shootDays ? parseInt(form.shootDays) : null,
+      production_request_id: requestId,
+    })
+    .select('id')
+    .single();
+
+  if (projectErr || !project) throw new Error(`Failed to create project: ${projectErr?.message}`);
+
+  // Seed the 3 standard phases
+  const { error: phasesErr } = await supabase.from('project_phases').insert([
+    { project_id: project.id, phase: 'pre_pro', status: 'pending' },
+    { project_id: project.id, phase: 'production', status: 'pending' },
+    { project_id: project.id, phase: 'post', status: 'pending' },
+  ]);
+
+  if (phasesErr) throw new Error(`Failed to seed phases: ${phasesErr.message}`);
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -65,53 +127,72 @@ export async function POST(req: Request) {
     }
 
     // Insert into DB
-    const { error: dbErr } = await supabase.from('production_requests').insert({
-      ref,
-      first_name: form.firstName,
-      last_name: form.lastName,
-      email: form.email,
-      phone: form.phone,
-      company: form.company,
-      job_title: form.jobTitle || null,
-      heard_about: form.heardAbout || null,
-      production_name: form.productionName,
-      description: form.description,
-      script_status: form.scriptStatus,
-      stakeholders: form.stakeholders || null,
-      nda_required: form.ndaRequired || null,
-      decision_deadline: form.decisionDeadline || null,
-      shoot_date: form.shootDate || null,
-      delivery_date: form.deliveryDate || null,
-      shoot_days: form.shootDays ? parseInt(form.shootDays) : null,
-      location_count: form.locationCount ? parseInt(form.locationCount) : null,
-      street: form.street,
-      street2: form.street2 || null,
-      city: form.city,
-      state: form.state,
-      zip: form.zip || null,
-      services: form.services,
-      audio_needed: form.audioNeeded,
-      broadcast: form.broadcast,
-      post_needed: form.postNeeded,
-      deliverables: form.deliverables,
-      accessibility: form.accessibility,
-      talent_needed: form.talentNeeded || null,
-      talent_count: form.talentCount ? parseInt(form.talentCount) : null,
-      talent_type: form.talentType,
-      talent_demo: form.talentDemo || null,
-      union_pref: form.unionPref || null,
-      paid_advertising: form.paidAdvertising || null,
-      usage_years: form.usageYears ? parseInt(form.usageYears) : null,
-      brand_assets: form.brandAssets || null,
-      brand_notes: form.brandNotes || null,
-      music_approach: form.musicApproach,
-      budget_range: form.budgetRange || null,
-      notes: form.notes || null,
-      files: files,
-    });
-    if (dbErr) {
+    const { data: requestRow, error: dbErr } = await supabase
+      .from('production_requests')
+      .insert({
+        ref,
+        first_name: form.firstName,
+        last_name: form.lastName,
+        email: form.email,
+        phone: form.phone,
+        company: form.company,
+        job_title: form.jobTitle || null,
+        heard_about: form.heardAbout || null,
+        production_name: form.productionName,
+        description: form.description,
+        script_status: form.scriptStatus,
+        stakeholders: form.stakeholders || null,
+        nda_required: form.ndaRequired || null,
+        decision_deadline: form.decisionDeadline || null,
+        shoot_date: form.shootDate || null,
+        delivery_date: form.deliveryDate || null,
+        shoot_days: form.shootDays ? parseInt(form.shootDays) : null,
+        location_count: form.locationCount ? parseInt(form.locationCount) : null,
+        street: form.street,
+        street2: form.street2 || null,
+        city: form.city,
+        state: form.state,
+        zip: form.zip || null,
+        services: form.services,
+        audio_needed: form.audioNeeded,
+        broadcast: form.broadcast,
+        post_needed: form.postNeeded,
+        deliverables: form.deliverables,
+        accessibility: form.accessibility,
+        talent_needed: form.talentNeeded || null,
+        talent_count: form.talentCount ? parseInt(form.talentCount) : null,
+        talent_type: form.talentType,
+        talent_demo: form.talentDemo || null,
+        union_pref: form.unionPref || null,
+        paid_advertising: form.paidAdvertising || null,
+        usage_years: form.usageYears ? parseInt(form.usageYears) : null,
+        brand_assets: form.brandAssets || null,
+        brand_notes: form.brandNotes || null,
+        music_approach: form.musicApproach,
+        budget_range: form.budgetRange || null,
+        notes: form.notes || null,
+        files: files,
+      })
+      .select('id')
+      .single();
+
+    if (dbErr || !requestRow) {
       console.error('DB insert failed:', dbErr);
       return NextResponse.json({ error: 'Failed to save submission' }, { status: 500 });
+    }
+
+    // Auto-create project in Studio OS pipeline
+    try {
+      const clientId = await upsertClient(
+        form.company,
+        `${form.firstName} ${form.lastName}`.trim(),
+        form.email,
+        form.phone
+      );
+      await createProjectFromRequest(requestRow.id, ref, form, clientId);
+    } catch (pipelineErr: any) {
+      // Log but don't fail the request — form submission is the priority
+      console.error('Pipeline project creation failed:', pipelineErr.message);
     }
 
     // Send team notification + client confirmation in parallel
