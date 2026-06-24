@@ -1,6 +1,6 @@
 import type { FormState, UploadedFile } from './types';
 
-function esc(s: string | undefined | null): string {
+export function esc(s: string | undefined | null): string {
   if (!s) return '';
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -11,7 +11,7 @@ function fmtDate(iso: string): string {
   return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
-function row(label: string, value: string | undefined | null): string {
+export function row(label: string, value: string | undefined | null): string {
   if (!value) return '';
   return `
     <tr>
@@ -20,7 +20,7 @@ function row(label: string, value: string | undefined | null): string {
     </tr>`;
 }
 
-function section(title: string, rows: string[]): string {
+export function section(title: string, rows: string[]): string {
   const content = rows.filter(Boolean).join('');
   if (!content) return '';
   return `
