@@ -3,9 +3,6 @@
 import { useEffect, useRef, useState } from 'react';
 
 const STORAGE_KEY = 'sullivan_prework_v1';
-const ACCENT = '#4FB0D1';
-const DISPLAY = "'Kimberley BL', 'Inter', Arial, sans-serif";
-const BODY = "'Inter', Arial, sans-serif";
 
 type Field = { key: string; label: string; required?: boolean };
 
@@ -48,8 +45,10 @@ export default function SullivanPreWork() {
   const [form, setForm] = useState<Record<string, string>>(blank);
   const [status, setStatus] = useState<Status>('idle');
   const [message, setMessage] = useState('');
+  const [highlightKey, setHighlightKey] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const fieldRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | null>>({});
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Rehydrate from localStorage on mount.
   useEffect(() => {
@@ -63,6 +62,9 @@ export default function SullivanPreWork() {
       /* ignore corrupt storage */
     }
     setHydrated(true);
+    return () => {
+      if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    };
   }, []);
 
   // Autosave every change (after the initial hydrate so we don't clobber saved data).
@@ -75,15 +77,27 @@ export default function SullivanPreWork() {
     }
   }, [form, hydrated]);
 
-  const update = (key: string, val: string) =>
+  const update = (key: string, val: string) => {
     setForm((f) => ({ ...f, [key]: val }));
+    // Typing into a flagged field clears its highlight + the guard error.
+    if (key === highlightKey) setHighlightKey(null);
+    if (status === 'error' && (key === 'i_name' || key === 'i_role')) {
+      setStatus('idle');
+      setMessage('');
+    }
+  };
 
-  const focusField = (key: string) => {
+  const flagMissing = (key: string) => {
+    setStatus('error');
+    setMessage('Please add your name and role first.');
+    setHighlightKey(key);
     const el = fieldRefs.current[key];
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       el.focus();
     }
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    highlightTimer.current = setTimeout(() => setHighlightKey(null), 2800);
   };
 
   const clearFields = () => {
@@ -97,22 +111,20 @@ export default function SullivanPreWork() {
       }
       setStatus('idle');
       setMessage('');
+      setHighlightKey(null);
     }
   };
 
   const handleSubmit = async () => {
     if (status === 'sending' || status === 'sent') return;
 
+    // Guard — block the send entirely until name AND role are present.
     if (!form.i_name.trim()) {
-      setStatus('error');
-      setMessage('Please add your name and role first.');
-      focusField('i_name');
+      flagMissing('i_name');
       return;
     }
     if (!form.i_role.trim()) {
-      setStatus('error');
-      setMessage('Please add your name and role first.');
-      focusField('i_role');
+      flagMissing('i_role');
       return;
     }
 
@@ -140,140 +152,167 @@ export default function SullivanPreWork() {
 
   const sending = status === 'sending';
   const sent = status === 'sent';
+  const statusClass =
+    status === 'error' ? 'sstatus-err' : status === 'sent' ? 'sstatus-ok' : 'sstatus-info';
 
   return (
-    <div style={s.page}>
-      <div style={s.doc}>
-        {/* Header */}
-        <div style={s.eyebrow}>Phase 01 · Pre-Work for the Sullivan Team</div>
-        <h1 style={s.title}>Discovery Pre-Read</h1>
-        <p style={s.intro}>
-          A short set of questions to complete before our kick-off. Your answers give us a head
-          start — we&rsquo;ll review them together in the meeting rather than starting cold. There
-          are no wrong answers; first instincts are often the most useful.
-        </p>
+    <div className="swrap">
+      {/* Hanken Grotesk — loaded here to keep the change isolated to this page. */}
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      <link
+        href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+      />
+      <style dangerouslySetInnerHTML={{ __html: CSS }} />
 
-        {/* Before you start callout */}
-        <div style={s.callout}>
-          <div style={s.calloutTitle}>Before you start</div>
-          <ul style={s.calloutList}>
+      <div className="sdoc">
+        {/* Masthead */}
+        <header className="smast">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="smast-logo" src="/fme-logo.png" alt="FME Studios" />
+          <div className="smast-col">
+            <div className="smast-brandrow">
+              <span className="smast-word">FME STUDIOS</span>
+              <span className="smast-dot" />
+              <span className="smast-sub">Sullivan Brand Refresh</span>
+            </div>
+            <div className="smast-bar" />
+            <div className="seyebrow">Phase 01 · Pre-Work for the Sullivan Team</div>
+            <h1 className="sh1">Discovery Pre-Read</h1>
+            <p className="sintro">
+              A short set of questions to complete before our kick-off. Your answers give us a head
+              start — we&rsquo;ll review them together in the meeting rather than starting cold.
+              There are no wrong answers; first instincts are often the most useful.
+            </p>
+          </div>
+        </header>
+
+        {/* Before you start */}
+        <div className="scallout">
+          <div className="scallout-label">Before you start</div>
+          <ul>
             <li>Set aside about 15–20 minutes.</li>
             <li>Complete this on your own — we want your individual perspective.</li>
             <li>Answer in your own words. Bullet points or full sentences both work.</li>
           </ul>
         </div>
 
-        {/* INTAKE */}
-        <SectionTitle n="00" label="Who is filling this out?" />
-        <div style={s.intakeGrid}>
-          {INTAKE.map((f) => (
-            <label key={f.key} style={s.intakeField}>
-              <span style={s.intakeLabel}>
-                {f.label}
-                {f.required ? <span style={{ color: ACCENT }}> *</span> : null}
-              </span>
-              <input
-                ref={(el) => {
-                  fieldRefs.current[f.key] = el;
-                }}
-                type="text"
-                value={form[f.key] || ''}
-                onChange={(e) => update(f.key, e.target.value)}
-                style={s.input}
-              />
-            </label>
+        {/* Intake */}
+        <section className="scard">
+          <div className="ssec-label">Who is filling this out?</div>
+          <div className="sintake-grid">
+            {INTAKE.map((f) => {
+              const isDate = f.key === 'i_date';
+              return (
+                <label key={f.key} className={`sfield${isDate ? ' sfield-date' : ''}`}>
+                  <span className="sflabel">{f.label}</span>
+                  <input
+                    ref={(el) => {
+                      fieldRefs.current[f.key] = el;
+                    }}
+                    type="text"
+                    value={form[f.key] || ''}
+                    onChange={(e) => update(f.key, e.target.value)}
+                    className={`f-line${highlightKey === f.key ? ' f-err' : ''}`}
+                  />
+                </label>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Part 01 */}
+        <section className="spart">
+          <div className="spart-head">
+            <span className="spart-num">01</span>
+            <div>
+              <div className="spart-eyebrow">Part 01</div>
+              <h2 className="spart-h2">Where the Brand Has Been &amp; Where It&rsquo;s Going</h2>
+            </div>
+          </div>
+          {PART01.map((f) => (
+            <QuestionField
+              key={f.key}
+              field={f}
+              value={form[f.key] || ''}
+              onChange={(val) => update(f.key, val)}
+              assignRef={(el) => {
+                fieldRefs.current[f.key] = el;
+              }}
+            />
           ))}
-        </div>
+        </section>
 
-        {/* PART 01 */}
-        <SectionTitle n="01" label="Where the Brand Has Been & Where It's Going" />
-        {PART01.map((f) => (
+        {/* Part 02 */}
+        <section className="spart">
+          <div className="spart-head">
+            <span className="spart-num">02</span>
+            <div>
+              <div className="spart-eyebrow">Part 02</div>
+              <h2 className="spart-h2">Your Perspective on the Brand</h2>
+            </div>
+          </div>
+          {PART02.map((f, i) => (
+            <QuestionField
+              key={f.key}
+              field={f}
+              number={i + 1}
+              value={form[f.key] || ''}
+              onChange={(val) => update(f.key, val)}
+              assignRef={(el) => {
+                fieldRefs.current[f.key] = el;
+              }}
+            />
+          ))}
+        </section>
+
+        {/* Anything else */}
+        <section className="spart">
+          <div className="spart-head">
+            <div>
+              <div className="spart-eyebrow">Optional</div>
+              <h2 className="spart-h2">Anything Else</h2>
+            </div>
+          </div>
           <QuestionField
-            key={f.key}
-            field={f}
-            value={form[f.key] || ''}
-            onChange={(val) => update(f.key, val)}
+            field={EXTRA}
+            value={form[EXTRA.key] || ''}
+            onChange={(val) => update(EXTRA.key, val)}
             assignRef={(el) => {
-              fieldRefs.current[f.key] = el;
+              fieldRefs.current[EXTRA.key] = el;
             }}
           />
-        ))}
-
-        {/* PART 02 */}
-        <SectionTitle n="02" label="Your Perspective on the Brand" />
-        {PART02.map((f, i) => (
-          <QuestionField
-            key={f.key}
-            field={f}
-            number={i + 1}
-            value={form[f.key] || ''}
-            onChange={(val) => update(f.key, val)}
-            assignRef={(el) => {
-              fieldRefs.current[f.key] = el;
-            }}
-          />
-        ))}
-
-        {/* ANYTHING ELSE */}
-        <SectionTitle n="03" label="Anything else?" />
-        <QuestionField
-          field={EXTRA}
-          value={form[EXTRA.key] || ''}
-          onChange={(val) => update(EXTRA.key, val)}
-          assignRef={(el) => {
-            fieldRefs.current[EXTRA.key] = el;
-          }}
-        />
+        </section>
 
         {/* Submit */}
-        <div style={s.submitRow}>
+        <div className="ssubmit-row">
           <button
             type="button"
             onClick={handleSubmit}
             disabled={sending || sent}
-            style={{
-              ...s.submitBtn,
-              opacity: sending ? 0.7 : 1,
-              cursor: sending || sent ? 'default' : 'pointer',
-              background: sent ? '#1a8f5a' : ACCENT,
-            }}
+            className="swbtn swbtn-primary"
           >
             {sent ? 'Submitted' : sending ? 'Sending…' : 'Submit to FME'}
           </button>
-          <button
-            type="button"
-            onClick={clearFields}
-            disabled={sending}
-            style={s.clearBtn}
-          >
+          <button type="button" onClick={clearFields} disabled={sending} className="swbtn swbtn-ghost">
             Clear fields
           </button>
         </div>
-        {message ? (
-          <div
-            style={{
-              ...s.status,
-              color: status === 'error' ? '#c0392b' : status === 'sent' ? '#1a8f5a' : '#666',
-            }}
-          >
-            {message}
+        {message ? <div className={`sstatus ${statusClass}`}>{message}</div> : null}
+
+        {/* Signoff */}
+        <footer className="sfoot">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="sfoot-logo" src="/fme-logo.png" alt="FME Studios" />
+          <div>
+            <div className="sfoot-word">FME STUDIOS</div>
+            <div className="sfoot-line">
+              Phase 01 — Discovery Pre-Work · Please return ahead of the kick-off · fmestudios.com
+            </div>
           </div>
-        ) : null}
-
-        {/* Footer / signoff */}
-        <div style={s.footer}>
-          Thank you for taking the time. — The FME Studios Team
-        </div>
+        </footer>
       </div>
-    </div>
-  );
-}
-
-function SectionTitle({ n, label }: { n: string; label: string }) {
-  return (
-    <div style={s.sectionTitleWrap}>
-      <span style={s.sectionNum}>{n}</span>
-      <span style={s.sectionLabel}>{label}</span>
     </div>
   );
 }
@@ -292,9 +331,9 @@ function QuestionField({
   assignRef: (el: HTMLTextAreaElement | null) => void;
 }) {
   return (
-    <label style={s.qField}>
-      <span style={s.qLabel}>
-        {number ? <span style={{ color: ACCENT, fontWeight: 700 }}>{number}. </span> : null}
+    <label className="sq">
+      <span className="sq-label">
+        {number ? <span className="sq-num">{number}. </span> : null}
         {field.label}
       </span>
       <textarea
@@ -302,185 +341,198 @@ function QuestionField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={3}
-        style={s.textarea}
+        className="f-box"
       />
     </label>
   );
 }
 
-const s: Record<string, React.CSSProperties> = {
-  page: {
-    minHeight: '100vh',
-    background: '#eceef0',
-    padding: '40px 16px 64px',
-    fontFamily: BODY,
-    color: '#1a1a1a',
-  },
-  doc: {
-    maxWidth: 760,
-    margin: '0 auto',
-    background: '#ffffff',
-    borderRadius: 4,
-    boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 12px 40px rgba(0,0,0,0.10)',
-    padding: '56px 56px 48px',
-  },
-  eyebrow: {
-    fontFamily: BODY,
-    fontSize: 11,
-    fontWeight: 600,
-    letterSpacing: '0.22em',
-    textTransform: 'uppercase',
-    color: ACCENT,
-    marginBottom: 14,
-  },
-  title: {
-    fontFamily: DISPLAY,
-    fontSize: 44,
-    fontWeight: 400,
-    lineHeight: 1.05,
-    letterSpacing: '-0.01em',
-    margin: '0 0 18px',
-    color: '#0f0f0f',
-  },
-  intro: {
-    fontSize: 15.5,
-    lineHeight: 1.7,
-    color: '#444',
-    margin: '0 0 28px',
-    maxWidth: 620,
-  },
-  callout: {
-    background: '#f7fbfd',
-    border: `1px solid ${'#d8edf4'}`,
-    borderLeft: `3px solid ${ACCENT}`,
-    borderRadius: 3,
-    padding: '18px 22px',
-    marginBottom: 40,
-  },
-  calloutTitle: {
-    fontFamily: BODY,
-    fontSize: 11,
-    fontWeight: 700,
-    letterSpacing: '0.16em',
-    textTransform: 'uppercase',
-    color: '#3a8aa6',
-    marginBottom: 10,
-  },
-  calloutList: {
-    margin: 0,
-    paddingLeft: 18,
-    fontSize: 14,
-    lineHeight: 1.8,
-    color: '#4a4a4a',
-  },
-  sectionTitleWrap: {
-    display: 'flex',
-    alignItems: 'baseline',
-    gap: 14,
-    borderTop: '1px solid #e5e5e5',
-    paddingTop: 26,
-    marginTop: 40,
-    marginBottom: 22,
-  },
-  sectionNum: {
-    fontFamily: "'Courier New', monospace",
-    fontSize: 13,
-    fontWeight: 700,
-    color: ACCENT,
-    letterSpacing: '0.06em',
-  },
-  sectionLabel: {
-    fontFamily: DISPLAY,
-    fontSize: 22,
-    fontWeight: 400,
-    color: '#0f0f0f',
-    lineHeight: 1.2,
-  },
-  intakeGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-    gap: 18,
-    marginBottom: 8,
-  },
-  intakeField: { display: 'flex', flexDirection: 'column', gap: 7 },
-  intakeLabel: {
-    fontSize: 12,
-    fontWeight: 600,
-    letterSpacing: '0.06em',
-    textTransform: 'uppercase',
-    color: '#777',
-  },
-  input: {
-    fontFamily: BODY,
-    fontSize: 15,
-    color: '#1a1a1a',
-    background: '#fff',
-    border: '1px solid #d6d6d6',
-    borderRadius: 3,
-    padding: '10px 12px',
-    outline: 'none',
-    width: '100%',
-  },
-  qField: { display: 'flex', flexDirection: 'column', gap: 9, marginBottom: 24 },
-  qLabel: {
-    fontSize: 15,
-    fontWeight: 600,
-    lineHeight: 1.5,
-    color: '#222',
-  },
-  textarea: {
-    fontFamily: BODY,
-    fontSize: 15,
-    lineHeight: 1.6,
-    color: '#1a1a1a',
-    background: '#fff',
-    border: '1px solid #d6d6d6',
-    borderRadius: 3,
-    padding: '12px 14px',
-    outline: 'none',
-    width: '100%',
-    resize: 'vertical',
-    minHeight: 84,
-  },
-  submitRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 18,
-    marginTop: 44,
-    flexWrap: 'wrap',
-  },
-  submitBtn: {
-    fontFamily: BODY,
-    fontSize: 15,
-    fontWeight: 700,
-    letterSpacing: '0.03em',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 3,
-    padding: '14px 32px',
-  },
-  clearBtn: {
-    fontFamily: BODY,
-    fontSize: 13.5,
-    fontWeight: 600,
-    color: '#888',
-    background: 'transparent',
-    border: 'none',
-    cursor: 'pointer',
-    textDecoration: 'underline',
-    padding: '8px 4px',
-  },
-  status: {
-    marginTop: 16,
-    fontSize: 14,
-    fontWeight: 600,
-  },
-  footer: {
-    marginTop: 48,
-    paddingTop: 22,
-    borderTop: '1px solid #e5e5e5',
-    fontSize: 13,
-    color: '#999',
-    letterSpacing: '0.04em',
-  },
-};
+const CSS = `
+.swrap {
+  min-height: 100vh;
+  background: #0E1116;
+  padding: 40px 16px 64px;
+  font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #2B3038;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.sdoc {
+  max-width: 8.5in;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 6px;
+  padding: 40px clamp(24px, 5vw, 0.75in) 96px;
+  box-shadow: 0 10px 44px rgba(0,0,0,0.40);
+}
+
+/* Masthead */
+.smast {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  border-bottom: 2px solid rgba(14,17,22,0.10);
+  padding-bottom: 22px;
+}
+.smast-logo { width: 52px; height: 52px; flex: none; object-fit: contain; }
+.smast-col { flex: 1; min-width: 0; }
+.smast-brandrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.smast-word {
+  font-family: 'Kimberley BL', 'Kimberley', Georgia, serif;
+  font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: #0E1116;
+}
+.smast-dot { width: 4px; height: 4px; border-radius: 50%; background: #4FB0D1; flex: none; }
+.smast-sub {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.24em;
+  text-transform: uppercase; color: #8A929E;
+}
+.smast-bar { width: 48px; height: 3px; background: #4FB0D1; margin: 14px 0 12px; }
+.seyebrow {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.3em;
+  text-transform: uppercase; color: #2A82B8;
+}
+.sh1 {
+  font-family: 'Kimberley BL', 'Kimberley', Georgia, serif;
+  font-size: 40px; font-weight: 700; line-height: 0.96;
+  text-transform: uppercase; color: #0E1116; margin: 10px 0 16px;
+}
+.sintro { font-size: 15px; line-height: 1.55; color: #4A515C; max-width: 42em; margin: 0; }
+
+/* Before you start */
+.scallout {
+  border-left: 3px solid #4FB0D1;
+  background: #F4FAFC;
+  border-radius: 0 8px 8px 0;
+  padding: 16px 18px;
+  margin-top: 28px;
+}
+.scallout-label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.18em;
+  text-transform: uppercase; color: #2A82B8; margin-bottom: 8px;
+}
+.scallout ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.7; color: #4A515C; }
+
+/* Intake card */
+.scard {
+  border: 1px solid rgba(14,17,22,0.12);
+  border-radius: 8px;
+  padding: 18px 20px 20px;
+  background: #FAFBFC;
+  margin-top: 34px;
+}
+.ssec-label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.18em;
+  text-transform: uppercase; color: #6B7480; margin-bottom: 16px;
+}
+.sintake-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 24px; }
+.sfield { display: flex; flex-direction: column; gap: 6px; }
+.sfield-date { grid-column: 1 / -1; max-width: 220px; }
+.sflabel {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.14em;
+  text-transform: uppercase; color: #6B7480;
+}
+.f-line {
+  border: none;
+  border-bottom: 1px solid #C7CDD4;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  color: #2B3038;
+  padding: 7px 2px;
+  outline: none;
+  width: 100%;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+}
+.f-line:focus { border-bottom-color: #4FB0D1; box-shadow: 0 1px 0 0 #4FB0D1; }
+.f-line.f-err {
+  border-bottom-color: #C0492B;
+  background: rgba(192,73,43,0.06);
+  box-shadow: 0 0 0 3px rgba(192,73,43,0.20);
+  border-radius: 4px;
+}
+
+/* Part sections */
+.spart { border-top: 1px solid rgba(14,17,22,0.12); padding-top: 30px; margin-top: 34px; }
+.spart-head { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 22px; }
+.spart-num {
+  font-family: 'Kimberley BL', 'Kimberley', Georgia, serif;
+  font-size: 44px; font-weight: 700; line-height: 0.85; color: #4FB0D1; flex: none;
+}
+.spart-eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.28em;
+  text-transform: uppercase; color: #8A929E;
+}
+.spart-h2 {
+  font-family: 'Kimberley BL', 'Kimberley', Georgia, serif;
+  font-size: 23px; font-weight: 700; text-transform: uppercase;
+  color: #0E1116; line-height: 1.05; margin: 4px 0 0;
+}
+
+/* Questions */
+.sq { display: block; margin-bottom: 22px; }
+.sq-label { display: block; font-size: 15px; font-weight: 600; line-height: 1.5; color: #2B3038; margin-bottom: 9px; }
+.sq-num { color: #4FB0D1; font-family: 'Kimberley BL', 'Kimberley', Georgia, serif; font-weight: 700; }
+.f-box {
+  border: 1px solid #D5DAE0;
+  border-radius: 6px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #2B3038;
+  padding: 10px 12px;
+  resize: vertical;
+  outline: none;
+  width: 100%;
+  min-height: 84px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.f-box:focus { border-color: #4FB0D1; box-shadow: 0 0 0 3px rgba(79,176,209,0.22); }
+
+/* Buttons */
+.ssubmit-row { display: flex; align-items: center; gap: 16px; margin-top: 40px; flex-wrap: wrap; }
+.swbtn {
+  font-family: inherit;
+  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  border-radius: 6px;
+  padding: 9px 16px;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s, opacity .15s;
+}
+.swbtn:disabled { cursor: default; }
+.swbtn-primary { background: #4FB0D1; color: #08222E; border: none; }
+.swbtn-primary:hover:not(:disabled) { background: #6FC7E6; }
+.swbtn-primary:disabled { opacity: .65; }
+.swbtn-ghost { background: transparent; color: #6B7480; border: 1px solid #C7CDD4; }
+.swbtn-ghost:hover:not(:disabled) { color: #14171D; border-color: #8A929E; }
+.swbtn-ghost:disabled { opacity: .6; }
+.sstatus { margin-top: 14px; font-size: 14px; font-weight: 600; }
+.sstatus-err { color: #C0492B; }
+.sstatus-ok { color: #1a8f5a; }
+.sstatus-info { color: #6B7480; }
+
+/* Signoff */
+.sfoot {
+  border-top: 2px solid rgba(14,17,22,0.10);
+  margin-top: 44px;
+  padding-top: 20px;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.sfoot-logo { width: 40px; height: 40px; flex: none; object-fit: contain; }
+.sfoot-word { font-family: 'Kimberley BL', 'Kimberley', Georgia, serif; font-size: 14px; font-weight: 700; color: #0E1116; }
+.sfoot-line { font-size: 12px; color: #8A929E; margin-top: 2px; }
+
+@media (max-width: 560px) {
+  .sintake-grid { grid-template-columns: 1fr; }
+  .sfield-date { max-width: none; }
+  .sh1 { font-size: 32px; }
+  .spart-num { font-size: 36px; }
+}
+`;
