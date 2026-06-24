@@ -39,11 +39,10 @@ function buildSullivanEmailHtml(f: Record<string, string>): string {
               row('Date completed', v(f.i_date)),
             ])}
             ${section('Part 01 — Where the Brand Has Been & Where It\'s Going', [
+              row("Sullivan's greatest strength", v(f.dg_strength)),
               row('Brand heritage — what must we protect?', v(f.dg_heritage)),
               row('Future direction', v(f.dg_future)),
               row('Why a refresh, why now?', v(f.dg_whynow)),
-              row('What must NOT change?', v(f.dg_sacred)),
-              row('Open questions', v(f.dg_open)),
             ])}
             ${section('Part 02 — Your Perspective on the Brand', [
               row('1. Describe Sullivan to a stranger', v(f.q1)),

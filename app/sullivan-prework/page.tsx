@@ -18,11 +18,10 @@ const INTAKE: Field[] = [
 ];
 
 const PART01: Field[] = [
+  { key: 'dg_strength', label: "What is the Sullivan brand's greatest strength?" },
   { key: 'dg_heritage', label: 'Brand heritage — what about Sullivan must we protect?' },
   { key: 'dg_future', label: 'Future direction — where does the brand need to go?' },
   { key: 'dg_whynow', label: 'Why a refresh, why now?' },
-  { key: 'dg_sacred', label: 'What must NOT change?' },
-  { key: 'dg_open', label: "Open questions you'd want this process to answer" },
 ];
 
 const PART02: Field[] = [
