@@ -1,8 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 const STORAGE_KEY = 'sullivan_prework_v1';
+
+// useLayoutEffect runs before paint (no theme flash) but warns during SSR — fall back to useEffect on the server.
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 type Field = { key: string; label: string; required?: boolean };
 
@@ -40,6 +43,9 @@ const blank = (): Record<string, string> =>
   ALL_KEYS.reduce((acc, k) => ({ ...acc, [k]: '' }), {} as Record<string, string>);
 
 type Status = 'idle' | 'sending' | 'sent' | 'error';
+type Theme = 'light' | 'dark';
+
+const THEME_KEY = 'sullivan_theme';
 
 export default function SullivanPreWork() {
   const [form, setForm] = useState<Record<string, string>>(blank);
@@ -47,10 +53,21 @@ export default function SullivanPreWork() {
   const [message, setMessage] = useState('');
   const [highlightKey, setHighlightKey] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [theme, setTheme] = useState<Theme>('light');
   const fieldRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | null>>({});
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Rehydrate from localStorage on mount.
+  // Rehydrate form + theme from localStorage on mount.
+  // useLayoutEffect applies the saved theme before the browser paints, avoiding a flash.
+  useIsoLayoutEffect(() => {
+    try {
+      const t = localStorage.getItem(THEME_KEY);
+      if (t === 'dark' || t === 'light') setTheme(t);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -66,6 +83,18 @@ export default function SullivanPreWork() {
       if (highlightTimer.current) clearTimeout(highlightTimer.current);
     };
   }, []);
+
+  const toggleTheme = () => {
+    setTheme((prev) => {
+      const next: Theme = prev === 'light' ? 'dark' : 'light';
+      try {
+        localStorage.setItem(THEME_KEY, next);
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
 
   // Autosave every change (after the initial hydrate so we don't clobber saved data).
   useEffect(() => {
@@ -156,7 +185,7 @@ export default function SullivanPreWork() {
     status === 'error' ? 'sstatus-err' : status === 'sent' ? 'sstatus-ok' : 'sstatus-info';
 
   return (
-    <div className="swrap">
+    <div className="swrap" data-theme={theme}>
       {/* Hanken Grotesk — loaded here to keep the change isolated to this page. */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -165,6 +194,17 @@ export default function SullivanPreWork() {
         rel="stylesheet"
       />
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
+
+      <button
+        type="button"
+        className="stoggle"
+        onClick={toggleTheme}
+        aria-label={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+        title={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+      >
+        {theme === 'light' ? <MoonIcon /> : <SunIcon />}
+        <span>{theme === 'light' ? 'Dark' : 'Light'}</span>
+      </button>
 
       <div className="sdoc">
         {/* Masthead */}
@@ -347,33 +387,143 @@ function QuestionField({
   );
 }
 
+function SunIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+  );
+}
+
 const CSS = `
+/* Theme tokens — every per-theme color lives here so both themes stay coherent. */
+.swrap[data-theme="light"] {
+  --page-bg: #ECEEF1;
+  --card-bg: #ffffff;
+  --doc-shadow: 0 10px 44px rgba(0,0,0,0.12);
+  --text: #2B3038;
+  --text-strong: #0E1116;
+  --muted: #6B7480;
+  --muted-2: #8A929E;
+  --intro: #4A515C;
+  --accent: #4FB0D1;
+  --accent-deep: #2A82B8;
+  --rule: rgba(14,17,22,0.12);
+  --rule-strong: rgba(14,17,22,0.10);
+  --callout-bg: #F4FAFC;
+  --callout-label: #2A82B8;
+  --card-inner-bg: #FAFBFC;
+  --card-border: rgba(14,17,22,0.12);
+  --line-border: #C7CDD4;
+  --box-bg: #ffffff;
+  --box-border: #D5DAE0;
+  --ghost-text: #6B7480;
+  --ghost-border: #C7CDD4;
+  --ghost-hover-text: #14171D;
+  --ghost-hover-border: #8A929E;
+  --err: #C0492B;
+  --err-tint: rgba(192,73,43,0.06);
+  --err-ring: rgba(192,73,43,0.20);
+  --ok: #1a8f5a;
+  --toggle-bg: rgba(255,255,255,0.85);
+  --toggle-border: rgba(14,17,22,0.14);
+}
+.swrap[data-theme="dark"] {
+  --page-bg: #0E1116;
+  --card-bg: #161A20;
+  --doc-shadow: 0 10px 44px rgba(0,0,0,0.55);
+  --text: #E3E7EB;
+  --text-strong: #EDF0F3;
+  --muted: #8A929E;
+  --muted-2: #8A929E;
+  --intro: #AEB6C0;
+  --accent: #4FB0D1;
+  --accent-deep: #6FC7E6;
+  --rule: rgba(255,255,255,0.12);
+  --rule-strong: rgba(255,255,255,0.14);
+  --callout-bg: rgba(79,176,209,0.10);
+  --callout-label: #6FC7E6;
+  --card-inner-bg: rgba(255,255,255,0.03);
+  --card-border: rgba(255,255,255,0.12);
+  --line-border: rgba(255,255,255,0.22);
+  --box-bg: #1B1F26;
+  --box-border: rgba(255,255,255,0.16);
+  --ghost-text: #AEB6C0;
+  --ghost-border: rgba(255,255,255,0.24);
+  --ghost-hover-text: #ffffff;
+  --ghost-hover-border: rgba(255,255,255,0.50);
+  --err: #F2795E;
+  --err-tint: rgba(242,121,94,0.10);
+  --err-ring: rgba(242,121,94,0.30);
+  --ok: #4ED39A;
+  --toggle-bg: rgba(255,255,255,0.06);
+  --toggle-border: rgba(255,255,255,0.18);
+}
+
 .swrap {
   min-height: 100vh;
-  background: #0E1116;
+  background: var(--page-bg);
   padding: 40px 16px 64px;
   font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
   font-size: 15px;
   line-height: 1.6;
-  color: #2B3038;
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background .2s ease;
 }
 .sdoc {
   max-width: 8.5in;
   margin: 0 auto;
-  background: #fff;
+  background: var(--card-bg);
   border-radius: 6px;
   padding: 40px clamp(24px, 5vw, 0.75in) 96px;
-  box-shadow: 0 10px 44px rgba(0,0,0,0.40);
+  box-shadow: var(--doc-shadow);
+  transition: background .2s ease, box-shadow .2s ease;
 }
+
+/* Theme toggle */
+.stoggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text);
+  background: var(--toggle-bg);
+  border: 1px solid var(--toggle-border);
+  border-radius: 999px;
+  padding: 7px 12px;
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  transition: background .15s, border-color .15s, color .15s;
+}
+.stoggle:hover { border-color: var(--accent); }
+.stoggle svg { width: 14px; height: 14px; display: block; flex: none; }
 
 /* Masthead */
 .smast {
   display: flex;
   gap: 18px;
   align-items: flex-start;
-  border-bottom: 2px solid rgba(14,17,22,0.10);
+  border-bottom: 2px solid var(--rule-strong);
   padding-bottom: 22px;
 }
 .smast-logo { width: 52px; height: 52px; flex: none; object-fit: contain; }
@@ -381,115 +531,115 @@ const CSS = `
 .smast-brandrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .smast-word {
   font-family: 'Kimberley BL', 'Kimberley', Georgia, serif;
-  font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: #0E1116;
+  font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: var(--text-strong);
 }
-.smast-dot { width: 4px; height: 4px; border-radius: 50%; background: #4FB0D1; flex: none; }
+.smast-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); flex: none; }
 .smast-sub {
   font-size: 11px; font-weight: 600; letter-spacing: 0.24em;
-  text-transform: uppercase; color: #8A929E;
+  text-transform: uppercase; color: var(--muted-2);
 }
-.smast-bar { width: 48px; height: 3px; background: #4FB0D1; margin: 14px 0 12px; }
+.smast-bar { width: 48px; height: 3px; background: var(--accent); margin: 14px 0 12px; }
 .seyebrow {
   font-size: 12px; font-weight: 600; letter-spacing: 0.3em;
-  text-transform: uppercase; color: #2A82B8;
+  text-transform: uppercase; color: var(--accent-deep);
 }
 .sh1 {
   font-family: 'Kimberley BL', 'Kimberley', Georgia, serif;
   font-size: 40px; font-weight: 700; line-height: 0.96;
-  text-transform: uppercase; color: #0E1116; margin: 10px 0 16px;
+  text-transform: uppercase; color: var(--text-strong); margin: 10px 0 16px;
 }
-.sintro { font-size: 15px; line-height: 1.55; color: #4A515C; max-width: 42em; margin: 0; }
+.sintro { font-size: 15px; line-height: 1.55; color: var(--intro); max-width: 42em; margin: 0; }
 
 /* Before you start */
 .scallout {
-  border-left: 3px solid #4FB0D1;
-  background: #F4FAFC;
+  border-left: 3px solid var(--accent);
+  background: var(--callout-bg);
   border-radius: 0 8px 8px 0;
   padding: 16px 18px;
   margin-top: 28px;
 }
 .scallout-label {
   font-size: 11px; font-weight: 600; letter-spacing: 0.18em;
-  text-transform: uppercase; color: #2A82B8; margin-bottom: 8px;
+  text-transform: uppercase; color: var(--callout-label); margin-bottom: 8px;
 }
-.scallout ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.7; color: #4A515C; }
+.scallout ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.7; color: var(--intro); }
 
 /* Intake card */
 .scard {
-  border: 1px solid rgba(14,17,22,0.12);
+  border: 1px solid var(--card-border);
   border-radius: 8px;
   padding: 18px 20px 20px;
-  background: #FAFBFC;
+  background: var(--card-inner-bg);
   margin-top: 34px;
 }
 .ssec-label {
   font-size: 11px; font-weight: 600; letter-spacing: 0.18em;
-  text-transform: uppercase; color: #6B7480; margin-bottom: 16px;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 16px;
 }
 .sintake-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 24px; }
 .sfield { display: flex; flex-direction: column; gap: 6px; }
 .sfield-date { grid-column: 1 / -1; max-width: 220px; }
 .sflabel {
   font-size: 11px; font-weight: 600; letter-spacing: 0.14em;
-  text-transform: uppercase; color: #6B7480;
+  text-transform: uppercase; color: var(--muted);
 }
 .f-line {
   border: none;
-  border-bottom: 1px solid #C7CDD4;
+  border-bottom: 1px solid var(--line-border);
   background: transparent;
   font-family: inherit;
   font-size: 14px;
-  color: #2B3038;
+  color: var(--text);
   padding: 7px 2px;
   outline: none;
   width: 100%;
   transition: border-color .15s, box-shadow .15s, background .15s;
 }
-.f-line:focus { border-bottom-color: #4FB0D1; box-shadow: 0 1px 0 0 #4FB0D1; }
+.f-line:focus { border-bottom-color: var(--accent); box-shadow: 0 1px 0 0 var(--accent); }
 .f-line.f-err {
-  border-bottom-color: #C0492B;
-  background: rgba(192,73,43,0.06);
-  box-shadow: 0 0 0 3px rgba(192,73,43,0.20);
+  border-bottom-color: var(--err);
+  background: var(--err-tint);
+  box-shadow: 0 0 0 3px var(--err-ring);
   border-radius: 4px;
 }
 
 /* Part sections */
-.spart { border-top: 1px solid rgba(14,17,22,0.12); padding-top: 30px; margin-top: 34px; }
+.spart { border-top: 1px solid var(--rule); padding-top: 30px; margin-top: 34px; }
 .spart-head { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 22px; }
 .spart-num {
   font-family: 'Kimberley BL', 'Kimberley', Georgia, serif;
-  font-size: 44px; font-weight: 700; line-height: 0.85; color: #4FB0D1; flex: none;
+  font-size: 44px; font-weight: 700; line-height: 0.85; color: var(--accent); flex: none;
 }
 .spart-eyebrow {
   font-size: 11px; font-weight: 600; letter-spacing: 0.28em;
-  text-transform: uppercase; color: #8A929E;
+  text-transform: uppercase; color: var(--muted-2);
 }
 .spart-h2 {
   font-family: 'Kimberley BL', 'Kimberley', Georgia, serif;
   font-size: 23px; font-weight: 700; text-transform: uppercase;
-  color: #0E1116; line-height: 1.05; margin: 4px 0 0;
+  color: var(--text-strong); line-height: 1.05; margin: 4px 0 0;
 }
 
 /* Questions */
 .sq { display: block; margin-bottom: 22px; }
-.sq-label { display: block; font-size: 15px; font-weight: 600; line-height: 1.5; color: #2B3038; margin-bottom: 9px; }
-.sq-num { color: #4FB0D1; font-family: 'Kimberley BL', 'Kimberley', Georgia, serif; font-weight: 700; }
+.sq-label { display: block; font-size: 15px; font-weight: 600; line-height: 1.5; color: var(--text); margin-bottom: 9px; }
+.sq-num { color: var(--accent); font-family: 'Kimberley BL', 'Kimberley', Georgia, serif; font-weight: 700; }
 .f-box {
-  border: 1px solid #D5DAE0;
+  border: 1px solid var(--box-border);
   border-radius: 6px;
-  background: #fff;
+  background: var(--box-bg);
   font-family: inherit;
   font-size: 14px;
   line-height: 1.6;
-  color: #2B3038;
+  color: var(--text);
   padding: 10px 12px;
   resize: vertical;
   outline: none;
   width: 100%;
   min-height: 84px;
-  transition: border-color .15s, box-shadow .15s;
+  transition: border-color .15s, box-shadow .15s, background .15s;
 }
-.f-box:focus { border-color: #4FB0D1; box-shadow: 0 0 0 3px rgba(79,176,209,0.22); }
+.f-box:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,176,209,0.22); }
 
 /* Buttons */
 .ssubmit-row { display: flex; align-items: center; gap: 16px; margin-top: 40px; flex-wrap: wrap; }
@@ -505,20 +655,20 @@ const CSS = `
   transition: background .15s, color .15s, border-color .15s, opacity .15s;
 }
 .swbtn:disabled { cursor: default; }
-.swbtn-primary { background: #4FB0D1; color: #08222E; border: none; }
+.swbtn-primary { background: var(--accent); color: #08222E; border: none; }
 .swbtn-primary:hover:not(:disabled) { background: #6FC7E6; }
 .swbtn-primary:disabled { opacity: .65; }
-.swbtn-ghost { background: transparent; color: #6B7480; border: 1px solid #C7CDD4; }
-.swbtn-ghost:hover:not(:disabled) { color: #14171D; border-color: #8A929E; }
+.swbtn-ghost { background: transparent; color: var(--ghost-text); border: 1px solid var(--ghost-border); }
+.swbtn-ghost:hover:not(:disabled) { color: var(--ghost-hover-text); border-color: var(--ghost-hover-border); }
 .swbtn-ghost:disabled { opacity: .6; }
 .sstatus { margin-top: 14px; font-size: 14px; font-weight: 600; }
-.sstatus-err { color: #C0492B; }
-.sstatus-ok { color: #1a8f5a; }
-.sstatus-info { color: #6B7480; }
+.sstatus-err { color: var(--err); }
+.sstatus-ok { color: var(--ok); }
+.sstatus-info { color: var(--muted); }
 
 /* Signoff */
 .sfoot {
-  border-top: 2px solid rgba(14,17,22,0.10);
+  border-top: 2px solid var(--rule-strong);
   margin-top: 44px;
   padding-top: 20px;
   display: flex;
@@ -526,8 +676,8 @@ const CSS = `
   align-items: center;
 }
 .sfoot-logo { width: 40px; height: 40px; flex: none; object-fit: contain; }
-.sfoot-word { font-family: 'Kimberley BL', 'Kimberley', Georgia, serif; font-size: 14px; font-weight: 700; color: #0E1116; }
-.sfoot-line { font-size: 12px; color: #8A929E; margin-top: 2px; }
+.sfoot-word { font-family: 'Kimberley BL', 'Kimberley', Georgia, serif; font-size: 14px; font-weight: 700; color: var(--text-strong); }
+.sfoot-line { font-size: 12px; color: var(--muted-2); margin-top: 2px; }
 
 @media (max-width: 560px) {
   .sintake-grid { grid-template-columns: 1fr; }
