@@ -36,68 +36,6 @@ function validate(f: any): string | null {
   return null;
 }
 
-async function upsertClient(company: string, contactName: string, email: string, phone: string): Promise<string> {
-  // Check if a client with this company name already exists (case-insensitive)
-  const { data: existing } = await supabase
-    .from('roster_clients')
-    .select('id')
-    .ilike('name', company.trim())
-    .maybeSingle();
-
-  if (existing) return existing.id;
-
-  // Create a new client record
-  const { data: created, error } = await supabase
-    .from('roster_clients')
-    .insert({
-      name: company.trim(),
-      contact_name: contactName || null,
-      email: email || null,
-      phone: phone || null,
-    })
-    .select('id')
-    .single();
-
-  if (error || !created) throw new Error(`Failed to upsert client: ${error?.message}`);
-  return created.id;
-}
-
-async function createProjectFromRequest(
-  requestId: string,
-  ref: string,
-  form: FormState,
-  clientId: string
-): Promise<void> {
-  // Create the project
-  const { data: project, error: projectErr } = await supabase
-    .from('projects')
-    .insert({
-      name: form.productionName.trim(),
-      client_id: clientId,
-      status: 'new',
-      phase: 'intake',
-      project_type: 'commercial_video',
-      description: form.description || null,
-      shoot_date: form.shootDate || null,
-      delivery_date: form.deliveryDate || null,
-      shoot_days: form.shootDays ? parseInt(form.shootDays) : null,
-      production_request_id: requestId,
-    })
-    .select('id')
-    .single();
-
-  if (projectErr || !project) throw new Error(`Failed to create project: ${projectErr?.message}`);
-
-  // Seed the 3 standard phases
-  const { error: phasesErr } = await supabase.from('project_phases').insert([
-    { project_id: project.id, phase: 'pre_pro', status: 'pending' },
-    { project_id: project.id, phase: 'production', status: 'pending' },
-    { project_id: project.id, phase: 'post', status: 'pending' },
-  ]);
-
-  if (phasesErr) throw new Error(`Failed to seed phases: ${phasesErr.message}`);
-}
-
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -181,18 +119,46 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Failed to save submission' }, { status: 500 });
     }
 
-    // Auto-create project in Studio OS pipeline
+    // Auto-create project in Studio OS pipeline via the service-to-service intake
+    // endpoint. Studio OS owns the project schema (uninitialized project + client
+    // upsert + activity log + idempotency); we never touch its tables directly.
+    // Best-effort: form submission + email are the priority, so a failure here is
+    // logged but never fails the user's request.
     try {
-      const clientId = await upsertClient(
-        form.company,
-        `${form.firstName} ${form.lastName}`.trim(),
-        form.email,
-        form.phone
-      );
-      await createProjectFromRequest(requestRow.id, ref, form, clientId);
+      const intakeUrl = process.env.STUDIO_OS_INTAKE_URL;
+      const intakeToken = process.env.REQUEST_INTAKE_TOKEN;
+      if (!intakeUrl || !intakeToken) {
+        console.error('Studio OS intake skipped: STUDIO_OS_INTAKE_URL or REQUEST_INTAKE_TOKEN not set');
+      } else {
+        const res = await fetch(intakeUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${intakeToken}`,
+          },
+          body: JSON.stringify({
+            productionName: form.productionName.trim(),
+            description: form.description || null,
+            shootDate: form.shootDate || null,
+            deliveryDate: form.deliveryDate || null,
+            shootDays: form.shootDays ? parseInt(form.shootDays) : null,
+            productionRequestId: requestRow.id,
+            client: {
+              company: form.company.trim(),
+              contactName: `${form.firstName} ${form.lastName}`.trim() || null,
+              email: form.email || null,
+              phone: form.phone || null,
+            },
+          }),
+        });
+        if (!res.ok) {
+          const text = await res.text().catch(() => '');
+          console.error(`Studio OS intake failed: ${res.status} ${text}`);
+        }
+      }
     } catch (pipelineErr: any) {
       // Log but don't fail the request — form submission is the priority
-      console.error('Pipeline project creation failed:', pipelineErr.message);
+      console.error('Studio OS intake call threw:', pipelineErr?.message ?? pipelineErr);
     }
 
     // Send team notification + client confirmation in parallel
