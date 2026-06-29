@@ -126,12 +126,14 @@ export async function POST(req: Request) {
     // logged but never fails the user's request.
     try {
       const intakeUrl = process.env.STUDIO_OS_INTAKE_URL;
+      console.log('Studio OS intake DIAG — resolved URL:', JSON.stringify(intakeUrl), 'tokenPresent:', !!process.env.REQUEST_INTAKE_TOKEN, 'tokenLen:', (process.env.REQUEST_INTAKE_TOKEN||'').length);
       const intakeToken = process.env.REQUEST_INTAKE_TOKEN;
       if (!intakeUrl || !intakeToken) {
         console.error('Studio OS intake skipped: STUDIO_OS_INTAKE_URL or REQUEST_INTAKE_TOKEN not set');
       } else {
         const res = await fetch(intakeUrl, {
           method: 'POST',
+          redirect: 'follow',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${intakeToken}`,
@@ -152,8 +154,8 @@ export async function POST(req: Request) {
           }),
         });
         if (!res.ok) {
-          const text = await res.text().catch(() => '');
-          console.error(`Studio OS intake failed: ${res.status} ${text}`);
+          const bodyText = await res.text().catch(() => '(no body)');
+          console.error('Studio OS intake failed:', res.status, 'finalUrl:', res.url, 'redirected:', res.redirected, 'body:', bodyText.slice(0, 500));
         }
       }
     } catch (pipelineErr: any) {
