@@ -34,3 +34,11 @@ This app reads/writes the shared DB but **does not own schema.** Migrations are 
 ---
 
 *App-specific operating notes only. System design + schema + the shared invariants live in `FME-Studios/fme-studio-os`.*
+
+## GitHub Projects board
+Issues in this repo are tracked on the org-wide board #1 ("Studio OS Roadmap":
+https://github.com/orgs/FME-Studios/projects/1), shared with `fme-studio-os`.
+- At kickoff, read the board filtered to this repo.
+- Any issue you create here, add it to the board: `gh project item-add 1 --owner FME-Studios --url <issue-url>` (auto-add is scoped to fme-studio-os only, so it won't happen automatically).
+- Closure only via a merged `Closes #N` PR — never self-close or set Done by hand.
+- Full protocol: `fme-studio-os/devlog/ISSUES_WORKFLOW.md`.
